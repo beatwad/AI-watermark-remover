@@ -29,7 +29,9 @@ uv run streamlit run app.py
   and need no key; `deepl` needs `TRANSLATOR_API_KEY`.
 - `src/prompts.py` — all prompts.
 
-Every setting in `config.yaml` can also be overridden per run in the sidebar of the GUI.
+Every setting in `config.yaml` can also be overridden per run in the sidebar of the GUI. Those
+overrides live only in the browser session, until you press **Save settings**, which writes them
+back to `config.yaml` (comments included). Secrets are never written there, they stay in `.env`.
 
 ## Layout
 

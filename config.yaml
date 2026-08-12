@@ -21,7 +21,7 @@ paraphrase:
   # openrouter | openai | gemini | claude | ollama
   provider: openrouter
   # Model id as the selected provider names it.
-  model: openai/gpt-4o-mini
+  model: deepseek/deepseek-v4-flash-0731
   temperature: 0.7
   timeout: 120
   # Used by the openrouter provider only.

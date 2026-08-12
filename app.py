@@ -3,7 +3,7 @@
 import streamlit as st
 
 from src.cleaner import CleaningResult
-from src.config import load_config
+from src.config import CONFIG_PATH, load_config, save_config
 from src.paraphraser import DEFAULT_MODELS, LANGUAGE_NAMES, PROVIDERS, missing_key_message
 from src.pipeline import run_pipeline
 
@@ -41,61 +41,100 @@ config = load_config()
 st.title("LLM Watermark Remover")
 st.caption("Strip LLM typography, round-trip translate and paraphrase the text.")
 
+def step_label(title: str, key: str, enabled_by_default: bool) -> str:
+    """Expander title showing whether the step is on, taken from the previous rerun."""
+    return f"{title}" if st.session_state.get(key, enabled_by_default) else f"{title} · off"
+
+
 with st.sidebar:
-    st.header("Settings")
     st.caption("Defaults come from config.yaml, secrets from .env")
 
-    config.cleaning.enabled = st.checkbox("Remove LLM symbols", config.cleaning.enabled)
-    config.cleaning.normalize_whitespace = st.checkbox(
-        "Normalize whitespace", config.cleaning.normalize_whitespace
-    )
+    with st.expander(step_label("Cleaning", "clean_on", config.cleaning.enabled)):
+        config.cleaning.enabled = st.checkbox(
+            "Remove LLM symbols", config.cleaning.enabled, key="clean_on"
+        )
+        config.cleaning.normalize_whitespace = st.checkbox(
+            "Normalize whitespace", config.cleaning.normalize_whitespace
+        )
 
-    st.divider()
-    config.translation.enabled = st.checkbox("Round-trip translation", config.translation.enabled)
-    providers = ["google", "mymemory", "deepl"]
-    config.translation.provider = st.selectbox(
-        "Translation provider",
-        providers,
-        index=providers.index(config.translation.provider)
-        if config.translation.provider in providers
-        else 0,
-    )
-    languages = sorted(set(LANGUAGE_NAMES) | {config.translation.intermediate_language})
-    languages = [code for code in languages if code != config.translation.source_language]
-    config.translation.intermediate_language = st.selectbox(
-        "Intermediate language",
-        languages,
-        index=languages.index(config.translation.intermediate_language)
-        if config.translation.intermediate_language in languages
-        else 0,
-        format_func=language_label,
-    )
+    with st.expander(step_label("Translation", "translate_on", config.translation.enabled)):
+        config.translation.enabled = st.checkbox(
+            "Round-trip translation", config.translation.enabled, key="translate_on"
+        )
+        providers = ["google", "mymemory", "deepl"]
+        config.translation.provider = st.selectbox(
+            "Provider",
+            providers,
+            index=providers.index(config.translation.provider)
+            if config.translation.provider in providers
+            else 0,
+        )
+        all_languages = sorted(
+            set(LANGUAGE_NAMES)
+            | {config.translation.source_language, config.translation.intermediate_language}
+        )
+        source_column, intermediate_column = st.columns(2)
+        with source_column:
+            config.translation.source_language = st.selectbox(
+                "Source",
+                all_languages,
+                index=all_languages.index(config.translation.source_language),
+                format_func=language_label,
+                help="Language of the input text. The text is translated back into it.",
+            )
+        languages = [code for code in all_languages if code != config.translation.source_language]
+        with intermediate_column:
+            config.translation.intermediate_language = st.selectbox(
+                "Intermediate",
+                languages,
+                index=languages.index(config.translation.intermediate_language)
+                if config.translation.intermediate_language in languages
+                else 0,
+                format_func=language_label,
+                help="Language the text is translated through and back.",
+            )
 
-    st.divider()
-    config.paraphrase.enabled = st.checkbox("Paraphrase", config.paraphrase.enabled)
-    configured_provider = config.paraphrase.provider.lower()
-    config.paraphrase.provider = st.selectbox(
-        "LLM provider",
-        PROVIDERS,
-        index=PROVIDERS.index(configured_provider) if configured_provider in PROVIDERS else 0,
-    )
-    # Keying the field by provider resets the model when another provider is picked.
-    default_model = (
-        config.paraphrase.model
-        if config.paraphrase.provider == configured_provider
-        else DEFAULT_MODELS[config.paraphrase.provider]
-    )
-    config.paraphrase.model = st.text_input(
-        "Model", default_model, key=f"model_{config.paraphrase.provider}"
-    )
-    config.paraphrase.temperature = st.slider(
-        "Temperature", 0.0, 1.5, float(config.paraphrase.temperature), 0.1
-    )
+    with st.expander(step_label("Paraphrase", "paraphrase_on", config.paraphrase.enabled)):
+        config.paraphrase.enabled = st.checkbox(
+            "Paraphrase", config.paraphrase.enabled, key="paraphrase_on"
+        )
+        configured_provider = config.paraphrase.provider.lower()
+        provider_column, temperature_column = st.columns(2)
+        with provider_column:
+            config.paraphrase.provider = st.selectbox(
+                "Provider",
+                PROVIDERS,
+                index=PROVIDERS.index(configured_provider)
+                if configured_provider in PROVIDERS
+                else 0,
+            )
+        with temperature_column:
+            config.paraphrase.temperature = st.number_input(
+                "Temperature", 0.0, 1.5, float(config.paraphrase.temperature), 0.1
+            )
+        # Keying the field by provider resets the model when another provider is picked.
+        default_model = (
+            config.paraphrase.model
+            if config.paraphrase.provider == configured_provider
+            else DEFAULT_MODELS[config.paraphrase.provider]
+        )
+        config.paraphrase.model = st.text_input(
+            "Model", default_model, key=f"model_{config.paraphrase.provider}"
+        )
 
+    # Outside the expander, a collapsed one would hide the warning.
     if config.paraphrase.enabled:
         key_error = missing_key_message(config.paraphrase.provider, config.secrets)
         if key_error:
             st.error(key_error)
+
+    if st.button("Save settings", width="stretch", help=f"Write them to {CONFIG_PATH.name}"):
+        try:
+            save_config(config)
+        except OSError as error:
+            st.error(f"Could not write {CONFIG_PATH.name}: {error}")
+        else:
+            st.success(f"Saved to {CONFIG_PATH.name}")
 
 text = st.text_area("Input text", height=280, placeholder="Paste the text here...")
 

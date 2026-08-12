@@ -1,12 +1,13 @@
 """Configuration loading: config.yaml for settings, .env for secrets."""
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict
 
 import yaml
 from dotenv import load_dotenv
+from ruamel.yaml import YAML
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = PROJECT_ROOT / "config.yaml"
@@ -80,3 +81,31 @@ def load_config(path: Path = CONFIG_PATH) -> AppConfig:
             llm_proxy=os.getenv("LLM_PROXY", ""),
         ),
     )
+
+
+def save_config(config: AppConfig, path: Path = CONFIG_PATH) -> None:
+    """Write the settings back to config.yaml, keeping its comments and layout.
+
+    Secrets are never written, they stay in .env.
+    """
+    sections = {
+        "cleaning": asdict(config.cleaning),
+        "translation": asdict(config.translation),
+        "paraphrase": asdict(config.paraphrase),
+    }
+
+    round_trip = YAML()
+    round_trip.preserve_quotes = True
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            document = round_trip.load(f) or {}
+    else:
+        document = {}
+
+    for name, values in sections.items():
+        section = document.setdefault(name, {})
+        for key, value in values.items():
+            section[key] = value
+
+    with open(path, "w", encoding="utf-8") as f:
+        round_trip.dump(document, f)
