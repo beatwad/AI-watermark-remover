@@ -52,3 +52,4 @@ back to `config.yaml` (comments included). Secrets are never written there, they
 | `src/paraphraser.py` | LangChain chain over the selected provider's model |
 | `src/prompts.py` | Prompts |
 | `src/config.py` | `config.yaml` + `.env` loading |
+| `watermark_detector/` | SynthID watermark detection, optional extra, see its own README |
