@@ -16,7 +16,7 @@ Any step is optional, so you can configure watermark removing pipeline as you li
 
 ```bash
 uv sync
-cp .env_example .env               # then fill in the API key of the provider you use
+cp .env_example .env # then fill in the API key of the provider you use
 cp config_example.yaml config.yaml # optional, the example is used until you do
 ```
 
@@ -26,15 +26,17 @@ cp config_example.yaml config.yaml # optional, the example is used until you do
 uv run streamlit run app.py
 ```
 
+Paste the text into `Input text` field, then press **Ctrl + Enter** to confirm it, then press **Process**.
+
 ## Configuration
 
-- `config.yaml` — which steps to run, translation provider, intermediate language, paraphrase
-  provider and model. It is gitignored so your settings stay yours; `config_example.yaml` is the
-  version in the repository and is read as a fallback while `config.yaml` does not exist.
-- `.env` — API keys (see `.env_example`). Only the key of the selected paraphrase provider is
-  needed, `ollama` needs none. The `google` and `mymemory` translation providers are free
-  and need no key; `deepl` needs `TRANSLATOR_API_KEY`.
-- `src/prompts.py` — all prompts.
+- `config.yaml` - which steps to run, translation provider, intermediate language, paraphrase
+ provider and model. It is gitignored so your settings stay yours; `config_example.yaml` is the
+ version in the repository and is read as a fallback while `config.yaml` does not exist.
+- `.env` - API keys (see `.env_example`). Only the key of the selected paraphrase provider is
+ needed, `ollama` needs none. The `google` and `mymemory` translation providers are free
+ and need no key; `deepl` needs `TRANSLATOR_API_KEY`.
+- `src/prompts.py` - all prompts.
 
 Every setting in `config.yaml` can also be overridden per run in the sidebar of the GUI. Those
 overrides live only in the browser session, until you press **Save settings**, which writes them
