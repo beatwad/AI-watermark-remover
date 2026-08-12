@@ -1,0 +1,30 @@
+# Application configuration.
+# Secrets (API keys) live in .env, see .env_example.
+
+cleaning:
+  enabled: true
+  # Collapse repeated spaces and trailing whitespace after symbol replacement.
+  normalize_whitespace: true
+
+translation:
+  enabled: true
+  # google (free, no key) | mymicrosoft | mymemory (free, no key) | deepl (needs TRANSLATOR_API_KEY)
+  provider: google
+  # Intermediate language for the round trip: ru, de, fr, es, it, ...
+  intermediate_language: de
+  source_language: en
+  # Max characters sent to the translator in one request.
+  chunk_size: 4000
+
+paraphrase:
+  enabled: true
+  # openrouter | openai | gemini | claude | ollama
+  provider: openrouter
+  # Model id as the selected provider names it.
+  model: deepseek/deepseek-v4-flash-0731
+  temperature: 0.7
+  timeout: 120
+  # Used by the openrouter provider only.
+  base_url: https://openrouter.ai/api/v1
+  # Used by the ollama provider only.
+  ollama_api_url: http://localhost:11434
