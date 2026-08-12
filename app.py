@@ -1,7 +1,9 @@
 """Streamlit GUI for the LLM watermark remover."""
 
 import streamlit as st
+from loguru import logger
 
+import logger_config  # noqa: F401  imported for its side effect of configuring the sinks
 from src.cleaner import CleaningResult
 from src.config import CONFIG_PATH, load_config, save_config
 from src.paraphraser import DEFAULT_MODELS, LANGUAGE_NAMES, PROVIDERS, missing_key_message
@@ -36,7 +38,12 @@ def render_stats(title: str, cleaning: CleaningResult) -> None:
     )
 
 
-config = load_config()
+try:
+    config = load_config()
+except Exception as error:
+    logger.exception("The app cannot start without a readable config")
+    st.error(f"Could not load {CONFIG_PATH.name}: {type(error).__name__}: {error}")
+    st.stop()
 
 st.title("LLM Watermark Remover")
 st.caption("Strip LLM typography, round-trip translate and paraphrase the text.")
@@ -129,12 +136,14 @@ with st.sidebar:
     if config.paraphrase.enabled:
         key_error = missing_key_message(config.paraphrase.provider, config.secrets)
         if key_error:
+            logger.warning("Paraphrasing is enabled but not usable: {}", key_error)
             st.error(key_error)
 
     if st.button("Save settings", width="stretch", help=f"Write them to {CONFIG_PATH.name}"):
         try:
             save_config(config)
         except OSError as error:
+            logger.exception("Saving the settings from the sidebar failed")
             st.error(f"Could not write {CONFIG_PATH.name}: {error}")
         else:
             st.success(f"Saved to {CONFIG_PATH.name}")
@@ -146,6 +155,8 @@ if st.button("Process", type="primary", disabled=not text.strip()):
     try:
         result = run_pipeline(text, config, progress=status.write)
     except Exception as error:  # surface the failure in the UI instead of a blank page
+        # The pipeline already logged the traceback, this records what the user was shown.
+        logger.error("Processing failed: {}: {}", type(error).__name__, error)
         status.update(label="Failed", state="error")
         st.error(f"{type(error).__name__}: {error}")
     else:

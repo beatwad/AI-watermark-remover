@@ -1,10 +1,13 @@
 """Paraphrasing of the text with an LLM from any supported provider via LangChain."""
 
+import time
+
 import httpx
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from loguru import logger
 
 from src import prompts
 from src.config import ParaphraseConfig, Secrets
@@ -75,10 +78,19 @@ def create_chat_model(config: ParaphraseConfig, secrets: Secrets) -> BaseChatMod
     provider = config.provider.lower()
     error = missing_key_message(provider, secrets)
     if error:
+        logger.error("Cannot create the chat model: {}", error)
         raise ValueError(error)
 
     api_key, _ = api_key_for(provider, secrets)
     proxy = secrets.llm_proxy
+    logger.info(
+        "Creating chat model: provider={}, model={}, temperature={}, timeout={}s, proxy={}",
+        provider,
+        config.model,
+        config.temperature,
+        config.timeout,
+        "yes" if proxy else "no",
+    )
 
     if provider in ("openrouter", "openai"):
         from langchain_openai import ChatOpenAI
@@ -130,6 +142,7 @@ def create_chat_model(config: ParaphraseConfig, secrets: Secrets) -> BaseChatMod
             temperature=config.temperature,
         )
 
+    logger.error("Unsupported paraphrase provider: {}", config.provider)
     raise ValueError(f"Unsupported paraphrase provider: {config.provider}")
 
 
@@ -149,4 +162,27 @@ class Paraphraser:
 
     def paraphrase(self, text: str, language_code: str = "en") -> str:
         language = LANGUAGE_NAMES.get(language_code, language_code)
-        return self.chain.invoke({"text": text, "language": language}).strip()
+        logger.info(
+            "Paraphrasing {} characters in {} with '{}'", len(text), language, self.config.model
+        )
+        started = time.monotonic()
+        try:
+            result = self.chain.invoke({"text": text, "language": language}).strip()
+        except Exception:
+            # Rate limits, timeouts, proxy and authentication errors all surface here.
+            logger.exception(
+                "Paraphrasing with '{}' via {} failed after {:.1f}s",
+                self.config.model,
+                self.config.provider,
+                time.monotonic() - started,
+            )
+            raise
+
+        if not result:
+            logger.warning("'{}' returned an empty paraphrase", self.config.model)
+        logger.info(
+            "Paraphrased in {:.1f}s, {} characters returned",
+            time.monotonic() - started,
+            len(result),
+        )
+        return result

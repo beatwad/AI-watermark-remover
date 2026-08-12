@@ -4,6 +4,7 @@ import time
 from typing import List
 
 from deep_translator import DeeplTranslator, GoogleTranslator, MyMemoryTranslator
+from loguru import logger
 
 from src.config import TranslationConfig
 
@@ -20,14 +21,34 @@ class RoundTripTranslator:
         self.api_key = api_key
         provider = config.provider.lower()
         if provider not in FREE_PROVIDERS and provider != "deepl":
+            logger.error("Unsupported translation provider: {}", config.provider)
             raise ValueError(f"Unsupported translation provider: {config.provider}")
         if provider == "deepl" and not api_key:
+            logger.error("TRANSLATOR_API_KEY is missing, the deepl provider cannot be used")
             raise ValueError("TRANSLATOR_API_KEY is required for the deepl provider")
         self.provider = provider
+        logger.debug("Translator ready: provider={}, chunk_size={}", provider, config.chunk_size)
 
     def _translate(self, text: str, source: str, target: str) -> str:
         chunks = self._split(text, self.config.chunk_size)
-        return "".join(self._translate_chunk(chunk, source, target) for chunk in chunks)
+        logger.info(
+            "Translating {} characters '{}' -> '{}' in {} chunk(s) via {}",
+            len(text),
+            source,
+            target,
+            len(chunks),
+            self.provider,
+        )
+        started = time.monotonic()
+        translated = "".join(self._translate_chunk(chunk, source, target) for chunk in chunks)
+        logger.info(
+            "Translated '{}' -> '{}' in {:.1f}s, {} characters returned",
+            source,
+            target,
+            time.monotonic() - started,
+            len(translated),
+        )
+        return translated
 
     def _translate_chunk(self, chunk: str, source: str, target: str) -> str:
         if not chunk.strip():
@@ -47,10 +68,30 @@ class RoundTripTranslator:
             try:
                 translated = engine.translate(chunk.strip())
                 break
-            except Exception:
+            except Exception as error:
                 if attempt == MAX_ATTEMPTS - 1:
+                    logger.exception(
+                        "{} failed to translate a chunk of {} characters after {} attempts",
+                        self.provider,
+                        len(chunk),
+                        MAX_ATTEMPTS,
+                    )
                     raise
+                logger.warning(
+                    "{} translation attempt {}/{} failed ({}: {}), retrying",
+                    self.provider,
+                    attempt + 1,
+                    MAX_ATTEMPTS,
+                    type(error).__name__,
+                    error,
+                )
                 time.sleep(1 + attempt)
+        if not translated:
+            logger.warning(
+                "{} returned an empty translation for a chunk of {} characters",
+                self.provider,
+                len(chunk),
+            )
         return f"{leading}{translated or ''}{trailing}"
 
     @staticmethod

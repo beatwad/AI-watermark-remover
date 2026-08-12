@@ -6,6 +6,8 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Dict, List
 
+from loguru import logger
+
 # character -> (replacement, human readable name)
 SYMBOL_MAP: Dict[str, tuple[str, str]] = {
     # Dashes and hyphens
@@ -149,6 +151,11 @@ def clean_text(text: str, normalize_whitespace: bool = True) -> CleaningResult:
     # Catch any remaining invisible formatting characters that are not in the map.
     leftovers = [ch for ch in cleaned if unicodedata.category(ch) == "Cf"]
     if leftovers:
+        logger.debug(
+            "Removed {} formatting characters that are not in the symbol map: {}",
+            len(leftovers),
+            sorted({f"U+{ord(ch):04X}" for ch in leftovers}),
+        )
         counts.update(leftovers)
         cleaned = "".join(ch for ch in cleaned if unicodedata.category(ch) != "Cf")
 
@@ -158,4 +165,11 @@ def clean_text(text: str, normalize_whitespace: bool = True) -> CleaningResult:
         cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
         cleaned = cleaned.strip()
 
-    return CleaningResult(text=cleaned, counts=counts)
+    result = CleaningResult(text=cleaned, counts=counts)
+    logger.info(
+        "Cleaned {} characters down to {}, {} symbols replaced or removed",
+        len(text),
+        len(cleaned),
+        result.total,
+    )
+    return result
