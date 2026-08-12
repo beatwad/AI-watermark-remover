@@ -3,8 +3,7 @@
 An application that uses a multistep pipeline to remove any watermarks from AI generated text
 
 What it does:
-- takes text, strips the typographic markers LLMs usually leave behind (em dashes, zero-width
-characters, exotic spaces, curly quotes)
+- takes text, strips the typographic markers LLMs usually leave behind (em dashes, zero-width characters, exotic spaces, curly quotes)
 - runs it through a translation round trip (e.g. English -> intermediate language -> English), can select different translation provide (Google, Mymemory, Deepl)
 - paraphrases the result with an LLM, keeping the meaning, quality and readability intact.
 
