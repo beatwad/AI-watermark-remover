@@ -68,6 +68,9 @@ with st.sidebar:
             index=providers.index(config.translation.provider)
             if config.translation.provider in providers
             else 0,
+            format_func=lambda code: (
+                "deepl (API key required)" if code == "deepl" else code
+            ),
         )
         all_languages = sorted(
             set(LANGUAGE_NAMES)

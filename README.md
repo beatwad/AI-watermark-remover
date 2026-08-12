@@ -1,17 +1,23 @@
-# LLM Watermark Remover
+# AI Watermark Remover
 
-Takes text, strips the typographic markers LLMs usually leave behind (em dashes, zero-width
-characters, exotic spaces, curly quotes), runs it through a translation round trip
-(English -> intermediate language -> English) and paraphrases the result with an LLM,
-keeping the meaning, quality and readability intact.
+An application that uses a multistep pipeline to remove any watermarks from AI generated text
+
+What it does:
+- takes text, strips the typographic markers LLMs usually leave behind (em dashes, zero-width
+characters, exotic spaces, curly quotes)
+- runs it through a translation round trip (e.g. English -> intermediate language -> English), can select different translation provide (Google, Mymemory, Deepl)
+- paraphrases the result with an LLM, keeping the meaning, quality and readability intact.
 
 Paraphrasing runs through OpenRouter, OpenAI, Gemini, Claude or a local Ollama model.
+
+Any step is optional, so you can configure watermark removing pipeline as you like.
 
 ## Setup
 
 ```bash
 uv sync
-cp .env_example .env   # then fill in the API key of the provider you use
+cp .env_example .env               # then fill in the API key of the provider you use
+cp config_example.yaml config.yaml # optional, the example is used until you do
 ```
 
 ## Run
@@ -23,7 +29,8 @@ uv run streamlit run app.py
 ## Configuration
 
 - `config.yaml` — which steps to run, translation provider, intermediate language, paraphrase
-  provider and model.
+  provider and model. It is gitignored so your settings stay yours; `config_example.yaml` is the
+  version in the repository and is read as a fallback while `config.yaml` does not exist.
 - `.env` — API keys (see `.env_example`). Only the key of the selected paraphrase provider is
   needed, `ollama` needs none. The `google` and `mymemory` translation providers are free
   and need no key; `deepl` needs `TRANSLATOR_API_KEY`.

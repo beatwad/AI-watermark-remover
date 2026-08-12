@@ -11,6 +11,8 @@ from ruamel.yaml import YAML
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = PROJECT_ROOT / "config.yaml"
+# config.yaml is gitignored, so a fresh clone starts from the example.
+CONFIG_EXAMPLE_PATH = PROJECT_ROOT / "config_example.yaml"
 
 load_dotenv(PROJECT_ROOT / ".env")
 
@@ -65,6 +67,9 @@ def _section(raw: Dict[str, Any], name: str) -> Dict[str, Any]:
 
 def load_config(path: Path = CONFIG_PATH) -> AppConfig:
     """Read config.yaml and the .env secrets into a single config object."""
+    if not path.exists() and CONFIG_EXAMPLE_PATH.exists():
+        path = CONFIG_EXAMPLE_PATH
+
     with open(path, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
 
