@@ -1,4 +1,4 @@
-"""Streamlit GUI for the LLM watermark remover."""
+"""Streamlit GUI for the AI watermark remover."""
 
 import streamlit as st
 from loguru import logger
@@ -9,7 +9,7 @@ from src.config import CONFIG_PATH, load_config, save_config
 from src.paraphraser import DEFAULT_MODELS, LANGUAGE_NAMES, PROVIDERS, missing_key_message
 from src.pipeline import run_pipeline
 
-st.set_page_config(page_title="LLM Watermark Remover", page_icon="🧽", layout="wide")
+st.set_page_config(page_title="AI Watermark Remover", page_icon="🧽", layout="wide")
 
 
 def language_label(code: str) -> str:
@@ -45,7 +45,7 @@ except Exception as error:
     st.error(f"Could not load {CONFIG_PATH.name}: {type(error).__name__}: {error}")
     st.stop()
 
-st.title("LLM Watermark Remover")
+st.title("AI Watermark Remover")
 st.caption("Strip LLM typography, round-trip translate and paraphrase the text.")
 
 def step_label(title: str, key: str, enabled_by_default: bool) -> str:
