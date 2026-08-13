@@ -65,11 +65,41 @@ result = detector.detect(text)
 result.score          # posterior probability that the text is watermarked
 result.verdict        # "watermarked" | "not watermarked" | "uncertain"
 result.is_watermarked # True | False | None when uncertain
+result.z_score        # standard deviations above the unwatermarked null
+result.mean_g_value   # mean g-value, 0.5 when there is no watermark
 result.token_count    # tokens scored
 result.reliable       # False when the text is too short to conclude anything
 ```
 
+### z-score
+
+`verdict` comes from `score`, the Bayesian posterior. `z_score` is the simpler frequentist
+view of the same g-values: without a watermark every g-value is a fair coin flip, so the
+mean of `n` of them has mean 0.5 and standard deviation `0.5/sqrt(n)`, giving
+`z = 2*sqrt(n)*(mean_g - 0.5)`. A watermark pushes g-values towards 1, so it shows up as a
+large positive z.
+
+That formula assumes the 30 tournament layers are independent, which they are not exactly,
+so it was checked against 30 unwatermarked texts: mean z **-0.09**, standard deviation
+**0.90**, mean g-value **0.4993**. The null behaves like a standard normal, slightly
+narrower than one, so the z is not inflated.
+
+Treat it as a second opinion rather than the verdict. On one unwatermarked sample here the
+posterior said `0.0000` while z reached `+2.90`, which a naive `z > 2` rule would have
+called a watermark. The posterior uses the per-layer structure that z averages away.
+
 `detect_batch(texts)` scores several texts in one pass.
+
+## Notebook
+
+`detect_watermark.ipynb` is a two-cell demo. The first cell holds a paragraph that
+gemma-2b-it really did generate under the demo key set, the second scores it and prints the
+verdict. Swap the text in the first cell for your own to test it. Running it needs a kernel,
+which is not part of the extra:
+
+```bash
+uv pip install ipykernel
+```
 
 To use a detector of your own, or one you have been given access to, pass its repo id or a
 local path:
@@ -98,8 +128,10 @@ tokenizer and the g-function are always taken from it and never configured separ
 
 Text generated with `SynthIDTextWatermarkLogitsProcessor` under the demo key set scores
 `1.0000`, the same prompts generated without it score `0.0000`. Ordinary unwatermarked text
-scores between `0.0000` and `0.0383`. So the machinery separates cleanly on the key set the
-detector was trained for, which is the demo key set and not Gemini's.
+scores between `0.0000` and `0.0383`. The notebook's watermarked paragraph reaches
+`z = +11.45` against a null measured at mean `-0.09` and standard deviation `0.90`. So the
+machinery separates cleanly on the key set the detector was trained for, which is the demo
+key set and not Gemini's.
 
 ## References
 

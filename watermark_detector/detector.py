@@ -19,7 +19,6 @@ from loguru import logger
 from transformers import (
     AutoTokenizer,
     BayesianDetectorModel,
-    SynthIDTextWatermarkDetector,
     SynthIDTextWatermarkLogitsProcessor,
 )
 
@@ -48,6 +47,8 @@ class DetectionResult:
     score: float
     verdict: str
     token_count: int
+    z_score: float = 0.0
+    mean_g_value: float = 0.5
 
     @property
     def is_watermarked(self) -> Optional[bool]:
@@ -117,9 +118,7 @@ class SynthIDDetector:
         self.logits_processor = SynthIDTextWatermarkLogitsProcessor(
             **detector_module.config.watermarking_config, device=self.device
         )
-        self.detector = SynthIDTextWatermarkDetector(
-            detector_module, self.logits_processor, self.tokenizer
-        )
+        self.detector_module = detector_module
         self.ngram_len = self.logits_processor.ngram_len
         logger.info(
             "Detector ready: {} keys, ngram_len {}",
@@ -153,15 +152,19 @@ class SynthIDDetector:
             ]
 
         with torch.no_grad():
-            scores = self.detector(input_ids)[0]
+            g_values, mask = self._g_values_and_mask(input_ids)
+            scores = self.detector_module(g_values, mask)[0]
+        mean_g_values, z_scores = self._mean_and_z(g_values, mask)
 
         results = [
             DetectionResult(
                 score=float(score),
                 verdict=self._verdict(float(score)),
                 token_count=count,
+                z_score=float(z),
+                mean_g_value=float(mean_g),
             )
-            for score, count in zip(scores, token_counts)
+            for score, count, z, mean_g in zip(scores, token_counts, z_scores, mean_g_values)
         ]
         for result in results:
             if not result.reliable:
@@ -175,12 +178,47 @@ class SynthIDDetector:
                 )
             else:
                 logger.info(
-                    "Scored {} tokens: {} at {:.3f}",
+                    "Scored {} tokens: {} at {:.3f}, z={:.2f}",
                     result.token_count,
                     result.verdict,
                     result.score,
+                    result.z_score,
                 )
         return results
+
+    def _g_values_and_mask(self, input_ids):
+        """Compute the g-values and the mask saying which of them count.
+
+        This is what SynthIDTextWatermarkDetector.__call__ does internally before handing
+        them to the Bayesian model. It is repeated here because that wrapper returns only
+        the posterior and throws the g-values away, and the z-score is computed from them.
+        """
+        eos_token_mask = self.logits_processor.compute_eos_token_mask(
+            input_ids=input_ids, eos_token_id=self.tokenizer.eos_token_id
+        )[:, self.ngram_len - 1 :]
+        context_repetition_mask = self.logits_processor.compute_context_repetition_mask(
+            input_ids=input_ids
+        )
+        g_values = self.logits_processor.compute_g_values(input_ids=input_ids)
+        return g_values, context_repetition_mask * eos_token_mask
+
+    @staticmethod
+    def _mean_and_z(g_values, mask):
+        """Mean g-value per text and its z-score against the unwatermarked null.
+
+        Without a watermark each g-value is a fair coin flip, so the mean of n of them has
+        mean 0.5 and standard deviation 0.5/sqrt(n), which gives z = 2*sqrt(n)*(mean - 0.5).
+        Watermarking pushes g-values towards 1, so a watermark shows up as a large positive z.
+        """
+        counted = mask.unsqueeze(-1).expand_as(g_values)
+        n = counted.sum(dim=(1, 2))
+        safe_n = n.clamp(min=1)
+        mean_g = (g_values * counted).sum(dim=(1, 2)) / safe_n
+        z = 2.0 * safe_n.float().sqrt() * (mean_g - 0.5)
+        # A text with nothing left to score is not evidence either way.
+        return torch.where(n > 0, mean_g, torch.full_like(mean_g, 0.5)), torch.where(
+            n > 0, z, torch.zeros_like(z)
+        )
 
     def _verdict(self, score: float) -> str:
         if score >= self.watermarked_threshold:
