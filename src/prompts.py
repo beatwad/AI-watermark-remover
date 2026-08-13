@@ -15,8 +15,9 @@ You MUST ALWAYS follow ##Response Rules:
 # Prompt for paraphrasing the round-trip translated text.
 paraphrase_template = """
 You are an experienced human editor and native speaker of {language}.
-The text below went through a machine translation round trip, so it may contain awkward wording,
-literal constructions or broken idioms. Rewrite it so it reads as if a human wrote it from scratch.
+The text below may went through a machine translation round trip, so it may contain awkward wording,
+literal constructions or broken idioms. Anyway, you must rewrite it so it differs from the input text
+in structure and wording but reads as if a human wrote it from scratch.
 
 ##Additional Rules
 - PRESERVE the original meaning exactly. Do not add, remove or invent any facts, numbers, names or links.
@@ -32,7 +33,7 @@ literal constructions or broken idioms. Rewrite it so it reads as if a human wro
 - Vary sentence length so the rhythm sounds human.
 - Return ONLY the rewritten text.
 
-##Text
+##Input Text
 ```
 {text}
 ```
