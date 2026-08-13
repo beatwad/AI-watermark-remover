@@ -48,12 +48,12 @@ route of the pipeline and scores what comes back. The source text was generated 
 a SynthID watermark applied under the public demo key set, so the detector can actually see it.
 Gemini's own keys are private, see `watermark_detector/README.md`.
 
-| metric | watermarked | en-de translated | en-de paraphrased | en-cn translated | en-cn paraphrased | en-ru translated | en-ru paraphrased |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| score | 1.0000 | 0.9998 | 0.0000 | 0.3261 | 0.0042 | 0.1861 | 0.0000 |
-| z_score | +11.43 | +5.68 | +1.02 | +4.10 | +2.86 | +4.19 | +0.51 |
-| avg g-value | 0.5599 | 0.5299 | 0.5053 | 0.5215 | 0.5153 | 0.5217 | 0.5026 |
-| is_watermarked | **yes** | **yes** | no | no | no | no | no |
+| metric | watermarked | en-de translated | en-de paraphrased | en-cn translated | en-cn paraphrased | en-ru translated | en-ru paraphrased | only paraphrased |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| score | 1.0000 | 0.9998 | 0.0000 | 0.3261 | 0.0042 | 0.1861 | 0.0000 | 0.0000 |
+| z_score | +11.43 | +5.68 | +1.02 | +4.10 | +2.86 | +4.19 | +0.51 | -1.18 |
+| avg g-value | 0.5599 | 0.5299 | 0.5053 | 0.5215 | 0.5153 | 0.5217 | 0.5026 | 0.4940 |
+| is_watermarked | **yes** | **yes** | no | no | no | no | no | no |
 
 `score` is the Bayesian posterior the verdict comes from. `z_score` says how many standard
 deviations the mean g-value sits above the 0.5 that unwatermarked text gives, against a null
@@ -61,9 +61,13 @@ measured at mean -0.09 and standard deviation 0.90.
 
 Translation on its own does not remove the watermark. The German round trip comes back at 0.9998
 and is still flagged. Chinese and Russian drop under the threshold but keep z-scores above 4, so
-there the watermark is degraded rather than gone. Paraphrasing is the step that clears it: every
-paraphrased variant scores near zero, and en-de and en-ru land inside the null band. The one
-exception is en-cn paraphrased, which still carries a trace at z = +2.86.
+there the watermark is degraded rather than gone.
+
+Paraphrasing is the step that clears it, and on this sample it does not need the translation to
+help. Paraphrasing alone gives the cleanest result in the table: z = -1.18 is the only negative
+score, meaning no residual signal at all rather than a signal pushed under a threshold. Adding a
+round trip in front of it does not improve on that, and in the Chinese case leaves a trace at
+z = +2.86.
 
 These are single samples per route, so treat the ordering as indicative rather than measured.
 
