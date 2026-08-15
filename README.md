@@ -115,6 +115,29 @@ z = +2.86.
 
 These are single samples per route, so treat the ordering as indicative rather than measured.
 
+### Second run, through the pipeline itself
+
+The table above was assembled by hand in the notebook. On 2026-08-15 the same source text went
+through the pipeline with `verification.enabled`, paraphrased by `deepseek/deepseek-v4-flash-0731`
+via OpenRouter:
+
+| stage | cleaning + paraphrase | cleaning + en-de + paraphrase |
+| --- | --- | --- |
+| original | 1.0000 (z +11.43) | 1.0000 (z +11.43) |
+| cleaned | 1.0000 (z +11.45) | 1.0000 (z +11.45) |
+| translated back | - | 0.9931 (z +5.17) |
+| paraphrased | 0.0000 (z +0.92) | 0.0000 (z -0.21) |
+
+Two things reproduce. Symbol cleaning does not touch the watermark, the score is unchanged
+across it. Translation on its own does not remove it either, 0.9931 here against 0.9998 in the
+notebook, still flagged both times.
+
+One thing does not reproduce: which route ends up cleanest. The notebook has paraphrase-only
+best at z = -1.18 with the round trip behind it at z = +1.02, this run has them the other way
+round at z = +0.92 and z = -0.21. Both clear the watermark either way. So the ordering between
+those two routes is noise at one sample per route, and only the direction is measured: cleaning
+does nothing, translation degrades, paraphrasing clears.
+
 ## Layout
 
 | File | Purpose |
