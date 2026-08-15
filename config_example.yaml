@@ -44,5 +44,6 @@ verification:
   # Ungated mirror of the tokenizer the detector was trained against. Leave it empty to take
   # the tokenizer named by the detector itself, which is gated and needs HF_TOKEN.
   tokenizer_repo: unsloth/gemma-2b-it
-  # Empty means cuda when it is available, cpu otherwise.
+  # Empty means cpu. Do not set cuda: the g-function is device-dependent and a cuda score
+  # is noise, see watermark_detector/README.md.
   device: ""

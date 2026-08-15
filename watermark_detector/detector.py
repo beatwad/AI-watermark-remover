@@ -74,7 +74,7 @@ class SynthIDDetector:
         self,
         detector_repo: str = DEFAULT_DETECTOR_REPO,
         tokenizer_repo: Optional[str] = None,
-        device: Optional[str] = None,
+        device: Optional[str] = None,  # see the note in __init__ before setting this to cuda
         hf_token: Optional[str] = None,
         watermarked_threshold: float = 0.95,
         not_watermarked_threshold: float = 0.60,
@@ -86,7 +86,20 @@ class SynthIDDetector:
             )
         self.watermarked_threshold = watermarked_threshold
         self.not_watermarked_threshold = not_watermarked_threshold
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        # cpu on purpose, and not "cuda if available". The g-function is a sampling table built
+        # by torch.randint from a seeded generator, and torch RNG is not reproducible across
+        # devices, so the table and every g-value that comes out of it differ on cuda. The
+        # detector's weights were trained against the cpu table, which makes a cuda score noise
+        # rather than a wrong number you could correct for. Measured on the notebook's
+        # watermarked sample: cpu 1.0000 with mean g 0.5599, cuda 0.0000 with mean g 0.4963.
+        self.device = device or "cpu"
+        if self.device.startswith("cuda"):
+            logger.warning(
+                "Running the detector on {} scores against a g-function this detector was not "
+                "trained on, so the result is noise. Use cpu unless you also generated the "
+                "watermark on this device.",
+                self.device,
+            )
 
         logger.info("Loading the SynthID detector {} on {}", detector_repo, self.device)
         try:

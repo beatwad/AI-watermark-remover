@@ -56,7 +56,7 @@ class VerificationConfig:
     # it pulls in torch, and that is an optional extra.
     detector_repo: str = "joaogante/dummy_synthid_detector"
     tokenizer_repo: str = "unsloth/gemma-2b-it"
-    # Empty means cuda when it is available, cpu otherwise.
+    # Empty means cpu, which is the only device that scores correctly. See detector.py.
     device: str = ""
 
 

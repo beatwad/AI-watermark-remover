@@ -71,8 +71,12 @@ what the watermark did at each step, instead of leaving you to assume it went aw
 | final | 0.0000 | +1.02 | not watermarked |
 
 It needs the detector extra, `uv sync --extra detector`, and it only recognises the key set the
-detector was trained on, so it cannot see watermarks from the Gemini app. Read
-`watermark_detector/README.md` before drawing conclusions from a score.
+detector was trained on, so it cannot see watermarks from the Gemini app. It also runs on cpu
+only: the g-function is device-dependent, so a cuda score is noise rather than a weaker signal.
+Read `watermark_detector/README.md` before drawing conclusions from a score.
+
+The symbol cleaner on its own does not touch the watermark. On the notebook's sample the score
+stays at 1.0000 before and after cleaning, which is the point of measuring rather than assuming.
 
 Verification is diagnostic, so unlike the other steps it never aborts the run. A detector that
 will not load is reported in the GUI and the processed text still comes back.

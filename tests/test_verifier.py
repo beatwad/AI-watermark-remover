@@ -119,7 +119,16 @@ class TestFailuresDegrade:
 
 
 def test_importing_the_verifier_does_not_need_torch():
-    """The Streamlit app installs without the detector extra, so the import must stay cheap."""
-    import sys
+    """The Streamlit app installs without the detector extra, so the import must stay cheap.
 
-    assert "torch" not in sys.modules
+    A subprocess, because torch may well be in sys.modules already: another test imports it.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    subprocess.run(
+        [sys.executable, "-c", "import sys, src.verifier; assert 'torch' not in sys.modules"],
+        cwd=Path(__file__).resolve().parent.parent,
+        check=True,
+    )

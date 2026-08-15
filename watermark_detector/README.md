@@ -54,6 +54,25 @@ detector = SynthIDDetector(tokenizer_repo=UNGATED_GEMMA_TOKENIZER)
 `tokenizer_repo` exists only for this. The g-values are computed over token ids, so a
 tokenizer with a different vocabulary silently turns every score into noise.
 
+## Device: cpu only
+
+`device` defaults to `"cpu"` and should stay there. The g-function is a sampling table that
+`transformers` builds with `torch.randint` from a generator seeded by the key set, and torch RNG
+is not reproducible across devices. A cuda table is a different table, so the g-values it
+produces have nothing to do with the ones the detector was trained on.
+
+This does not degrade the score, it destroys it, and quietly:
+
+| device | score | z-score | mean g-value | verdict |
+| --- | --- | --- | --- | --- |
+| cpu | 1.0000 | +11.43 | 0.5599 | watermarked |
+| cuda | 0.0000 | -0.71 | 0.4963 | not watermarked |
+
+Same text, same 309 tokens, same detector. On cuda the mean g-value sits at 0.4963, which is
+what unwatermarked text looks like, so a watermark that is plainly there reads as absent. The
+detector logs a warning if you ask for cuda anyway. Passing a device only makes sense if you
+generated the watermark on that same device.
+
 ## Use
 
 ```python
@@ -123,6 +142,7 @@ tokenizer and the g-function are always taken from it and never configured separ
   text is evidence the pipeline worked, not evidence the text was human written.
 - **Not an AI-text detector.** A negative verdict means "not watermarked with these keys".
   It says nothing about whether a machine wrote the text.
+- **Device.** cpu only, see above. A cuda score is noise, not a weaker signal.
 
 ## Verified behaviour
 
@@ -132,6 +152,11 @@ scores between `0.0000` and `0.0383`. The notebook's watermarked paragraph reach
 `z = +11.45` against a null measured at mean `-0.09` and standard deviation `0.90`. So the
 machinery separates cleanly on the key set the detector was trained for, which is the demo
 key set and not Gemini's.
+
+Re-checked on 2026-08-15 with `transformers` 4.57.6 and `torch` 2.13.0: the watermarked sample
+scores `1.0000` at `z = +11.43` on cpu, and the whole results table in the root README
+reproduces exactly. `tests/test_detector.py` pins this, run it with
+`RUN_DETECTOR_TESTS=1 uv run pytest tests/test_detector.py`.
 
 ## References
 
