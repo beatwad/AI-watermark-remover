@@ -1,6 +1,7 @@
 """Paraphrasing of the text with an LLM from any supported provider via LangChain."""
 
 import time
+from typing import List
 
 import httpx
 from langchain_core.language_models import BaseChatModel
@@ -161,13 +162,34 @@ class Paraphraser:
         self.chain = prompt | self.model | StrOutputParser()
 
     def paraphrase(self, text: str, language_code: str = "en") -> str:
+        return self.paraphrase_candidates(text, language_code, 1)[0]
+
+    def paraphrase_candidates(
+        self, text: str, language_code: str = "en", count: int = 1
+    ) -> List[str]:
+        """Paraphrase the same text `count` times, in one batch of parallel requests.
+
+        The candidates differ only because sampling makes them differ, so a temperature of 0
+        returns the same text `count` times and only costs money.
+        """
+        count = max(1, count)
         language = LANGUAGE_NAMES.get(language_code, language_code)
+        if count > 1 and not self.config.temperature:
+            logger.warning(
+                "Asking for {} candidates at temperature 0, they will all come back identical",
+                count,
+            )
         logger.info(
-            "Paraphrasing {} characters in {} with '{}'", len(text), language, self.config.model
+            "Paraphrasing {} characters in {} with '{}', {} candidate(s)",
+            len(text),
+            language,
+            self.config.model,
+            count,
         )
         started = time.monotonic()
+        payload = {"text": text, "language": language}
         try:
-            result = self.chain.invoke({"text": text, "language": language}).strip()
+            results = [result.strip() for result in self.chain.batch([payload] * count)]
         except Exception:
             # Rate limits, timeouts, proxy and authentication errors all surface here.
             logger.exception(
@@ -178,11 +200,12 @@ class Paraphraser:
             )
             raise
 
-        if not result:
-            logger.warning("'{}' returned an empty paraphrase", self.config.model)
+        empty = sum(1 for result in results if not result)
+        if empty:
+            logger.warning("'{}' returned {} empty paraphrase(s)", self.config.model, empty)
         logger.info(
             "Paraphrased in {:.1f}s, {} characters returned",
             time.monotonic() - started,
-            len(result),
+            [len(result) for result in results] if count > 1 else len(results[0]),
         )
-        return result
+        return results

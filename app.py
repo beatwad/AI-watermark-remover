@@ -8,7 +8,7 @@ from src.cleaner import TIER_NAMES, CleaningResult
 from src.config import CONFIG_PATH, load_config, save_config
 from src.paraphraser import DEFAULT_MODELS, LANGUAGE_NAMES, PROVIDERS, missing_key_message
 from src.pipeline import run_pipeline
-from src.verifier import VerificationResult
+from src.verifier import Selection, VerificationResult
 
 st.set_page_config(page_title="AI Watermark Remover", page_icon="🧽", layout="wide")
 
@@ -36,6 +36,30 @@ def render_stats(title: str, cleaning: CleaningResult) -> None:
         ],
         hide_index=True,
         width="stretch",
+    )
+
+
+def render_selection(selection: Selection) -> None:
+    st.subheader("Paraphrase candidates")
+    if selection.error:
+        st.warning(f"{selection.error} The first candidate was kept.")
+        return
+    st.dataframe(
+        [
+            {
+                "Kept": "yes" if index == selection.index else "",
+                "Candidate": stage.stage,
+                "Score": round(stage.score, 4),
+                "z-score": round(stage.z_score, 2),
+                "Verdict": stage.verdict,
+            }
+            for index, stage in enumerate(selection.scores)
+        ],
+        hide_index=True,
+        width="stretch",
+    )
+    st.caption(
+        "The candidate with the lowest score is kept, ties on the score are broken by z-score."
     )
 
 
@@ -172,6 +196,16 @@ with st.sidebar:
         config.paraphrase.model = st.text_input(
             "Model", default_model, key=f"model_{config.paraphrase.provider}"
         )
+        config.paraphrase.candidates = st.number_input(
+            "Candidates",
+            1,
+            10,
+            int(config.paraphrase.candidates),
+            help=(
+                "Paraphrase this many times and keep the one the detector scores lowest. "
+                "Needs verification, and costs one request per candidate."
+            ),
+        )
 
     with st.expander(step_label("Verification", "verify_on", config.verification.enabled)):
         config.verification.enabled = st.checkbox(
@@ -227,6 +261,8 @@ if st.button("Process", type="primary", disabled=not text.strip()):
 
         if result.verification:
             render_verification(result.verification)
+        if result.selection:
+            render_selection(result.selection)
 
         if result.cleaning:
             render_stats("Symbol statistics", result.cleaning)

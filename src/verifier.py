@@ -109,6 +109,62 @@ def verify(
     return VerificationResult(stages=scored)
 
 
+@dataclass
+class Selection:
+    """Which of several paraphrase candidates was kept, and how they all scored."""
+
+    text: str
+    index: int = 0
+    scores: List[StageScore] = field(default_factory=list)
+    error: str = ""
+
+
+def select_candidate(
+    candidates: List[str],
+    detector_repo: str,
+    tokenizer_repo: str = "",
+    device: str = "",
+    hf_token: str = "",
+) -> Selection:
+    """Keep the candidate the detector likes least.
+
+    Ranking is by posterior first and z-score second. The posterior saturates: once a watermark
+    is gone it reads 0.0000 for every candidate, and on a tie there is nothing left to choose on.
+    The z-score keeps resolving below that floor, so it is the tie-break rather than a second
+    opinion here.
+    """
+    usable = [text for text in candidates if text.strip()]
+    if not usable:
+        return Selection(text=candidates[0] if candidates else "", error="Every candidate is empty.")
+    if len(usable) == 1:
+        return Selection(text=usable[0])
+
+    result = verify(
+        {f"candidate {number}": text for number, text in enumerate(usable, 1)},
+        detector_repo=detector_repo,
+        tokenizer_repo=tokenizer_repo,
+        device=device,
+        hf_token=hf_token,
+    )
+    if result.error:
+        # Without scores there is nothing to choose on, so the first candidate is as good as any.
+        logger.warning("Candidates could not be scored, keeping the first one: {}", result.error)
+        return Selection(text=usable[0], error=result.error)
+
+    best = min(
+        range(len(result.stages)),
+        key=lambda index: (result.stages[index].score, result.stages[index].z_score),
+    )
+    logger.info(
+        "Kept candidate {} of {} at score {:.4f}, z={:+.2f}",
+        best + 1,
+        len(usable),
+        result.stages[best].score,
+        result.stages[best].z_score,
+    )
+    return Selection(text=usable[best], index=best, scores=result.stages)
+
+
 def collect_stages(*labelled: tuple[str, Optional[str]]) -> Dict[str, str]:
     """Ordered stage name -> text, dropping empty stages and ones that changed nothing.
 

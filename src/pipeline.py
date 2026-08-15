@@ -10,7 +10,7 @@ from src.cleaner import CleaningResult, clean_text
 from src.config import AppConfig
 from src.paraphraser import Paraphraser
 from src.translator import RoundTripTranslator
-from src.verifier import VerificationResult, collect_stages, verify
+from src.verifier import Selection, VerificationResult, collect_stages, select_candidate, verify
 
 
 @dataclass
@@ -24,6 +24,7 @@ class PipelineResult:
     cleaning: Optional[CleaningResult] = None
     final_cleaning: Optional[CleaningResult] = None
     verification: Optional[VerificationResult] = None
+    selection: Optional[Selection] = None
     steps: list[str] = field(default_factory=list)
 
 
@@ -60,15 +61,42 @@ def run_pipeline(
         result.steps.append("translation")
 
     if config.paraphrase.enabled:
-        progress(f"Paraphrasing with '{config.paraphrase.model}' via {config.paraphrase.provider}")
+        count = config.paraphrase.candidates
+        if count > 1 and not config.verification.enabled:
+            # Candidates are chosen by detector score, so without it there is nothing to choose
+            # on and the extra requests would only cost money.
+            logger.warning(
+                "paraphrase.candidates is {} but verification is off, generating one candidate",
+                count,
+            )
+            count = 1
+
+        progress(
+            f"Paraphrasing with '{config.paraphrase.model}' via {config.paraphrase.provider}"
+            + (f", {count} candidates" if count > 1 else "")
+        )
         try:
             paraphraser = Paraphraser(config.paraphrase, config.secrets)
-            result.paraphrased = paraphraser.paraphrase(
-                result.final, config.translation.source_language
+            candidates = paraphraser.paraphrase_candidates(
+                result.final, config.translation.source_language, count
             )
         except Exception:
             logger.exception("Paraphrasing failed, the pipeline is aborted")
             raise
+
+        if len(candidates) > 1:
+            progress("Scoring the candidates and keeping the least watermarked one")
+            result.selection = select_candidate(
+                candidates,
+                detector_repo=config.verification.detector_repo,
+                tokenizer_repo=config.verification.tokenizer_repo,
+                device=config.verification.device,
+                hf_token=config.secrets.hf_token,
+            )
+            result.paraphrased = result.selection.text
+        else:
+            result.paraphrased = candidates[0]
+
         result.final = result.paraphrased
         result.steps.append("paraphrase")
 

@@ -30,6 +30,9 @@ paraphrase:
   model: deepseek/deepseek-v4-flash-0731
   temperature: 0.7
   timeout: 120
+  # Paraphrase this many times and keep the one the detector scores lowest. Needs verification
+  # to be enabled, there is nothing to choose on without it. Costs one request per candidate.
+  candidates: 1
   # Used by the openrouter provider only.
   base_url: https://openrouter.ai/api/v1
   # Used by the ollama provider only.

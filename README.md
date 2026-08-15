@@ -5,7 +5,9 @@ An application that uses a multistep pipeline to remove any watermarks from AI g
 What it does:
 - takes text, strips the typographic markers LLMs usually leave behind (em dashes, zero-width characters, exotic spaces, curly quotes)
 - runs it through a translation round trip (e.g. English -> intermediate language -> English), can select different translation provide (Google, Mymemory, Deepl)
-- paraphrases the result with an LLM, keeping the meaning, quality and readability intact.
+- paraphrases the result with an LLM, keeping the meaning, quality and readability intact,
+ optionally several times over, keeping whichever comes back least watermarked
+- optionally scores every stage with the SynthID detector, so you can see what the watermark did
 
 Paraphrasing runs through OpenRouter, OpenAI, Gemini, Claude or a local Ollama model.
 
@@ -81,7 +83,28 @@ stays at 1.0000 before and after cleaning, which is the point of measuring rathe
 Verification is diagnostic, so unlike the other steps it never aborts the run. A detector that
 will not load is reported in the GUI and the processed text still comes back.
 
-Every setting in `config.yaml` can also be overridden per run in the sidebar of the GUI. Those
+### Paraphrase candidates
+
+`paraphrase.candidates` paraphrases the text more than once and keeps whichever result the
+detector scores lowest. It needs verification enabled, since the score is what it selects on,
+and it costs one request per candidate. A run with four:
+
+| candidate | score | z-score | |
+| --- | --- | --- | --- |
+| candidate 1 | 0.0000 | -0.10 | |
+| candidate 2 | 0.0000 | +0.55 | |
+| candidate 3 | 0.0000 | -1.08 | kept |
+| candidate 4 | 0.0000 | -0.16 | |
+
+All four scored 0.0000, which is the normal case: the posterior saturates once the watermark is
+gone and stops telling candidates apart. The z-score keeps resolving below that floor, so it is
+the tie-break rather than a second opinion. Ranking is by score first, z-score second.
+
+What this buys is modest and worth stating plainly. Every candidate above already reads "not
+watermarked", so selection is not rescuing a failed run, it is picking the one with the least
+residual signal. The spread here, -1.08 to +0.55, is about the same size as the run to run
+variance between two single paraphrases, so a single candidate is not a bad result, it is an
+unchosen one. Leave `candidates` at 1 unless residual z matters to you. Those
 overrides live only in the browser session, until you press **Save settings**, which writes them
 back to `config.yaml` (comments included). Secrets are never written there, they stay in `.env`.
 

@@ -45,6 +45,9 @@ class ParaphraseConfig:
     model: str = "openai/gpt-4o-mini"
     temperature: float = 0.7
     timeout: int = 120
+    # Paraphrase this many times and keep the one the detector scores lowest. Needs
+    # verification, there is nothing to choose on without it. Costs one request per candidate.
+    candidates: int = 1
     base_url: str = "https://openrouter.ai/api/v1"
     ollama_api_url: str = "http://localhost:11434"
 
