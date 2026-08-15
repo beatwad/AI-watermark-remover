@@ -29,13 +29,33 @@ Paste the text into `Input text` field, then press **Ctrl + Enter** to confirm i
 
 ## Configuration
 
-- `config.yaml` - which steps to run, translation provider, intermediate language, paraphrase
- provider and model. It is gitignored so your settings stay yours; `config_example.yaml` is the
- version in the repository and is read as a fallback while `config.yaml` does not exist.
+- `config.yaml` - which steps to run, symbol tiers, translation provider, intermediate language,
+ paraphrase provider and model. It is gitignored so your settings stay yours; `config_example.yaml`
+ is the version in the repository and is read as a fallback while `config.yaml` does not exist.
 - `.env` - API keys (see `.env_example`). Only the key of the selected paraphrase provider is
  needed, `ollama` needs none. The `google` and `mymemory` translation providers are free
  and need no key; `deepl` needs `TRANSLATOR_API_KEY`.
 - `src/prompts.py` - all prompts.
+
+### Symbol tiers
+
+The cleaning step does not treat every symbol the same, because they are not equally safe to
+touch. `cleaning.tiers` selects which groups it may change:
+
+| Tier | Contents | Default |
+| --- | --- | --- |
+| `carriers` | Invisible characters: zero-width, directional marks, exotic spaces, soft hyphen | on |
+| `typography` | The visible tells: em and en dashes, curly quotes, ellipsis character | on |
+| `punctuation` | Ordinary typography that is not a tell: `«» • · © ™ → ×` | off |
+
+Over-normalizing is itself a fingerprint. Text with no curly quotes, no em dashes and `(c)` in
+place of a copyright sign does not read as human, it reads as scrubbed. `punctuation` is off by
+default for that reason, and because replacing it mangles quotations in German, French or Russian,
+maths, and bulleted lists.
+
+A zero width joiner is kept when it glues two emoji into one grapheme, so `👨‍👩‍👧‍👦` survives
+cleaning instead of falling apart into four separate emoji. A zero width non-joiner is still
+removed even in Persian or Devanagari, where it is load-bearing.
 
 Every setting in `config.yaml` can also be overridden per run in the sidebar of the GUI. Those
 overrides live only in the browser session, until you press **Save settings**, which writes them
@@ -77,9 +97,10 @@ These are single samples per route, so treat the ordering as indicative rather t
 | --- | --- |
 | `app.py` | Streamlit GUI |
 | `src/pipeline.py` | Orchestrates clean -> translate -> paraphrase -> clean |
-| `src/cleaner.py` | Symbol map, replacement and per-symbol statistics |
+| `src/cleaner.py` | Symbol tiers, replacement and per-symbol statistics |
 | `src/translator.py` | Round-trip translation with chunking |
 | `src/paraphraser.py` | LangChain chain over the selected provider's model |
 | `src/prompts.py` | Prompts |
 | `src/config.py` | `config.yaml` + `.env` loading |
 | `watermark_detector/` | SynthID watermark detection, optional extra, see its own README |
+| `tests/` | `uv run pytest` |

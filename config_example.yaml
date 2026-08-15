@@ -5,6 +5,12 @@ cleaning:
   enabled: true
   # Collapse repeated spaces and trailing whitespace after symbol replacement.
   normalize_whitespace: true
+  # Which groups of symbols to touch.
+  #   carriers    - invisible characters: zero-width, directional marks, exotic spaces.
+  #   typography  - the visible tells: em and en dashes, curly quotes, ellipsis character.
+  #   punctuation - ordinary typography that is not a tell: «» • · © ™ -> x. Off by default,
+  #                 replacing it mangles quotations in other languages, maths and lists.
+  tiers: [carriers, typography]
 
 translation:
   enabled: true

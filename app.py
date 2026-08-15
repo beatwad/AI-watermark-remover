@@ -4,7 +4,7 @@ import streamlit as st
 from loguru import logger
 
 import logger_config  # noqa: F401  imported for its side effect of configuring the sinks
-from src.cleaner import CleaningResult
+from src.cleaner import TIER_NAMES, CleaningResult
 from src.config import CONFIG_PATH, load_config, save_config
 from src.paraphraser import DEFAULT_MODELS, LANGUAGE_NAMES, PROVIDERS, missing_key_message
 from src.pipeline import run_pipeline
@@ -62,6 +62,15 @@ with st.sidebar:
         )
         config.cleaning.normalize_whitespace = st.checkbox(
             "Normalize whitespace", config.cleaning.normalize_whitespace
+        )
+        config.cleaning.tiers = st.multiselect(
+            "Symbol tiers",
+            TIER_NAMES,
+            default=[tier for tier in TIER_NAMES if tier in config.cleaning.tiers],
+            help=(
+                "carriers: invisible characters. typography: em dashes, curly quotes, ellipsis. "
+                "punctuation: «» • · © -> x, ordinary typography that is not an LLM tell."
+            ),
         )
 
     with st.expander(step_label("Translation", "translate_on", config.translation.enabled)):

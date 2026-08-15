@@ -37,7 +37,7 @@ def run_pipeline(
 
     if config.cleaning.enabled:
         progress("Removing LLM symbols")
-        cleaning = clean_text(text, config.cleaning.normalize_whitespace)
+        cleaning = clean_text(text, config.cleaning.normalize_whitespace, config.cleaning.tiers)
         result.cleaning = cleaning
         result.cleaned = cleaning.text
         result.final = cleaning.text
@@ -73,7 +73,9 @@ def run_pipeline(
     if config.cleaning.enabled:
         # The LLM can reintroduce em dashes and curly quotes, so clean the output once more.
         progress("Cleaning the final text")
-        final_cleaning = clean_text(result.final, config.cleaning.normalize_whitespace)
+        final_cleaning = clean_text(
+            result.final, config.cleaning.normalize_whitespace, config.cleaning.tiers
+        )
         result.final_cleaning = final_cleaning
         result.final = final_cleaning.text
         if final_cleaning.total:

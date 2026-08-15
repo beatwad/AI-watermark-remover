@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 from loguru import logger
 from ruamel.yaml import YAML
 
+from src.cleaner import DEFAULT_TIERS
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 # config.yaml is gitignored, so a fresh clone starts from the example.
@@ -24,6 +26,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 class CleaningConfig:
     enabled: bool = True
     normalize_whitespace: bool = True
+    tiers: list[str] = field(default_factory=lambda: list(DEFAULT_TIERS))
 
 
 @dataclass
