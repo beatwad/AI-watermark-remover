@@ -8,6 +8,7 @@ from src.cleaner import TIER_NAMES, CleaningResult
 from src.config import CONFIG_PATH, load_config, save_config
 from src.paraphraser import DEFAULT_MODELS, LANGUAGE_NAMES, PROVIDERS, missing_key_message
 from src.pipeline import run_pipeline
+from src.verifier import VerificationResult
 
 st.set_page_config(page_title="AI Watermark Remover", page_icon="🧽", layout="wide")
 
@@ -36,6 +37,37 @@ def render_stats(title: str, cleaning: CleaningResult) -> None:
         hide_index=True,
         width="stretch",
     )
+
+
+def render_verification(verification: VerificationResult) -> None:
+    st.subheader("Watermark verification")
+    if verification.error:
+        st.warning(verification.error)
+        return
+    st.dataframe(
+        [
+            {
+                "Stage": stage.stage,
+                "Score": round(stage.score, 4),
+                "z-score": round(stage.z_score, 2),
+                "Verdict": stage.verdict,
+                "Tokens": stage.token_count,
+            }
+            for stage in verification.stages
+        ],
+        hide_index=True,
+        width="stretch",
+    )
+    st.caption(
+        "Score is the posterior probability that the text carries the watermark this detector "
+        "was trained on, z-score is how far its mean g-value sits above the unwatermarked null. "
+        "A negative verdict means 'not watermarked with these keys', not 'not written by an AI'."
+    )
+    if any(not stage.reliable for stage in verification.stages):
+        st.info(
+            "Some stages are too short for the score to mean much, it stays near the prior "
+            "under roughly 200 tokens."
+        )
 
 
 try:
@@ -141,6 +173,25 @@ with st.sidebar:
             "Model", default_model, key=f"model_{config.paraphrase.provider}"
         )
 
+    with st.expander(step_label("Verification", "verify_on", config.verification.enabled)):
+        config.verification.enabled = st.checkbox(
+            "Score the stages with the SynthID detector",
+            config.verification.enabled,
+            key="verify_on",
+            help=(
+                "Needs the detector extra. The detector only recognises the key set it was "
+                "trained on, so it cannot see watermarks from the Gemini app."
+            ),
+        )
+        config.verification.detector_repo = st.text_input(
+            "Detector", config.verification.detector_repo
+        )
+        config.verification.tokenizer_repo = st.text_input(
+            "Tokenizer",
+            config.verification.tokenizer_repo,
+            help="Ungated mirror of the detector's own tokenizer. Empty takes the gated one.",
+        )
+
     # Outside the expander, a collapsed one would hide the warning.
     if config.paraphrase.enabled:
         key_error = missing_key_message(config.paraphrase.provider, config.secrets)
@@ -173,6 +224,9 @@ if st.button("Process", type="primary", disabled=not text.strip()):
 
         st.subheader("Result")
         st.text_area("Output text", result.final, height=280)
+
+        if result.verification:
+            render_verification(result.verification)
 
         if result.cleaning:
             render_stats("Symbol statistics", result.cleaning)

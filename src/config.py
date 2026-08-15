@@ -50,6 +50,17 @@ class ParaphraseConfig:
 
 
 @dataclass
+class VerificationConfig:
+    enabled: bool = False
+    # Defaults repeated from watermark_detector.detector, which cannot be imported here:
+    # it pulls in torch, and that is an optional extra.
+    detector_repo: str = "joaogante/dummy_synthid_detector"
+    tokenizer_repo: str = "unsloth/gemma-2b-it"
+    # Empty means cuda when it is available, cpu otherwise.
+    device: str = ""
+
+
+@dataclass
 class Secrets:
     openrouter_api_key: str = ""
     openai_api_key: str = ""
@@ -57,6 +68,7 @@ class Secrets:
     anthropic_api_key: str = ""
     translator_api_key: str = ""
     llm_proxy: str = ""
+    hf_token: str = ""
 
 
 @dataclass
@@ -64,6 +76,7 @@ class AppConfig:
     cleaning: CleaningConfig = field(default_factory=CleaningConfig)
     translation: TranslationConfig = field(default_factory=TranslationConfig)
     paraphrase: ParaphraseConfig = field(default_factory=ParaphraseConfig)
+    verification: VerificationConfig = field(default_factory=VerificationConfig)
     secrets: Secrets = field(default_factory=Secrets)
 
 
@@ -91,6 +104,7 @@ def load_config(path: Path = CONFIG_PATH) -> AppConfig:
             cleaning=CleaningConfig(**_section(raw, "cleaning")),
             translation=TranslationConfig(**_section(raw, "translation")),
             paraphrase=ParaphraseConfig(**_section(raw, "paraphrase")),
+            verification=VerificationConfig(**_section(raw, "verification")),
             secrets=Secrets(
                 openrouter_api_key=os.getenv("OPENROUTER_API_KEY", ""),
                 openai_api_key=os.getenv("OPENAI_API_KEY", ""),
@@ -98,6 +112,7 @@ def load_config(path: Path = CONFIG_PATH) -> AppConfig:
                 anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
                 translator_api_key=os.getenv("TRANSLATOR_API_KEY", ""),
                 llm_proxy=os.getenv("LLM_PROXY", ""),
+                hf_token=os.getenv("HF_TOKEN", ""),
             ),
         )
     except TypeError:
@@ -128,6 +143,7 @@ def save_config(config: AppConfig, path: Path = CONFIG_PATH) -> None:
         "cleaning": asdict(config.cleaning),
         "translation": asdict(config.translation),
         "paraphrase": asdict(config.paraphrase),
+        "verification": asdict(config.verification),
     }
 
     round_trip = YAML()

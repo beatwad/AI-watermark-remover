@@ -34,3 +34,15 @@ paraphrase:
   base_url: https://openrouter.ai/api/v1
   # Used by the ollama provider only.
   ollama_api_url: http://localhost:11434
+
+verification:
+  # Score every stage with the SynthID detector to see whether the watermark actually went
+  # away. Needs the detector extra: uv sync --extra detector
+  # The detector only recognises the key set it was trained on, see watermark_detector/README.md.
+  enabled: false
+  detector_repo: joaogante/dummy_synthid_detector
+  # Ungated mirror of the tokenizer the detector was trained against. Leave it empty to take
+  # the tokenizer named by the detector itself, which is gated and needs HF_TOKEN.
+  tokenizer_repo: unsloth/gemma-2b-it
+  # Empty means cuda when it is available, cpu otherwise.
+  device: ""

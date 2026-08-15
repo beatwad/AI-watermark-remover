@@ -34,7 +34,8 @@ Paste the text into `Input text` field, then press **Ctrl + Enter** to confirm i
  is the version in the repository and is read as a fallback while `config.yaml` does not exist.
 - `.env` - API keys (see `.env_example`). Only the key of the selected paraphrase provider is
  needed, `ollama` needs none. The `google` and `mymemory` translation providers are free
- and need no key; `deepl` needs `TRANSLATOR_API_KEY`.
+ and need no key; `deepl` needs `TRANSLATOR_API_KEY`. `HF_TOKEN` is only for verification with
+ a gated detector.
 - `src/prompts.py` - all prompts.
 
 ### Symbol tiers
@@ -56,6 +57,25 @@ maths, and bulleted lists.
 A zero width joiner is kept when it glues two emoji into one grapheme, so `👨‍👩‍👧‍👦` survives
 cleaning instead of falling apart into four separate emoji. A zero width non-joiner is still
 removed even in Persian or Devanagari, where it is load-bearing.
+
+### Verification
+
+With `verification.enabled` the pipeline scores every stage with the SynthID detector and shows
+what the watermark did at each step, instead of leaving you to assume it went away:
+
+| Stage | Score | z-score | Verdict |
+| --- | --- | --- | --- |
+| original | 1.0000 | +11.43 | watermarked |
+| cleaned | 1.0000 | +11.43 | watermarked |
+| translated back | 0.9998 | +5.68 | watermarked |
+| final | 0.0000 | +1.02 | not watermarked |
+
+It needs the detector extra, `uv sync --extra detector`, and it only recognises the key set the
+detector was trained on, so it cannot see watermarks from the Gemini app. Read
+`watermark_detector/README.md` before drawing conclusions from a score.
+
+Verification is diagnostic, so unlike the other steps it never aborts the run. A detector that
+will not load is reported in the GUI and the processed text still comes back.
 
 Every setting in `config.yaml` can also be overridden per run in the sidebar of the GUI. Those
 overrides live only in the browser session, until you press **Save settings**, which writes them
@@ -100,6 +120,7 @@ These are single samples per route, so treat the ordering as indicative rather t
 | `src/cleaner.py` | Symbol tiers, replacement and per-symbol statistics |
 | `src/translator.py` | Round-trip translation with chunking |
 | `src/paraphraser.py` | LangChain chain over the selected provider's model |
+| `src/verifier.py` | Optional scoring of every stage with the SynthID detector |
 | `src/prompts.py` | Prompts |
 | `src/config.py` | `config.yaml` + `.env` loading |
 | `watermark_detector/` | SynthID watermark detection, optional extra, see its own README |

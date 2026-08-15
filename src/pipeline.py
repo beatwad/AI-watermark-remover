@@ -10,6 +10,7 @@ from src.cleaner import CleaningResult, clean_text
 from src.config import AppConfig
 from src.paraphraser import Paraphraser
 from src.translator import RoundTripTranslator
+from src.verifier import VerificationResult, collect_stages, verify
 
 
 @dataclass
@@ -22,6 +23,7 @@ class PipelineResult:
     final: str = ""
     cleaning: Optional[CleaningResult] = None
     final_cleaning: Optional[CleaningResult] = None
+    verification: Optional[VerificationResult] = None
     steps: list[str] = field(default_factory=list)
 
 
@@ -83,6 +85,25 @@ def run_pipeline(
                 "{} LLM symbols were reintroduced downstream and cleaned again",
                 final_cleaning.total,
             )
+
+    if config.verification.enabled:
+        progress("Scoring every stage with the SynthID detector")
+        result.verification = verify(
+            collect_stages(
+                ("original", result.original),
+                ("cleaned", result.cleaned),
+                ("translated back", result.back_translated),
+                ("paraphrased", result.paraphrased),
+                ("final", result.final),
+            ),
+            detector_repo=config.verification.detector_repo,
+            tokenizer_repo=config.verification.tokenizer_repo,
+            device=config.verification.device,
+            hf_token=config.secrets.hf_token,
+        )
+        if result.verification.error:
+            # Verification is diagnostic, a failure must not cost the user the processed text.
+            logger.warning("Verification failed: {}", result.verification.error)
 
     if not result.steps:
         logger.warning("Pipeline ran with every step disabled, the text is returned unchanged")
